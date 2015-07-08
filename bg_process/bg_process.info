@@ -1,0 +1,4 @@
+name = Background task processing
+description = Example module accompaining an article in Lullabot.com
+core = 7.x
+php = 5.4
