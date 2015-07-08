@@ -92,6 +92,11 @@ function drush_bg_process_background_process($field_name = NULL) {
     $success ? $succeeded++ : $errored++;
   }
 
+  // If we did not succeed a single time we consider that an error.
+  if (!$succeeded) {
+    return drush_set_error(dt('All of the entities failed processing.'));
+  }
+
   drush_log(dt('@succeeded entities were processed correctly. @errored entities failed.', array(
     '@succeeded' => $succeeded,
     '@errored' => $errored,
