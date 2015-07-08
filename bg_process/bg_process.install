@@ -20,52 +20,69 @@ function bg_process_install() {
 /**
  * Update from a remote 3rd party web service.
  */
-function bg_process_update_7100() {
-  // All of the entities that need to be updated contain the field.
-  $field_info = field_info_field(FIELD_URI);
-  // $field_info['bundles'] contains information about the entities and bundles
-  // that have this particular field attached to them.
-  $entity_list = array();
-  foreach ($field_info['bundles'] as $entity_type => $bundles) {
-    $query = new \EntityFieldQuery();
-    $results = $query
-      ->entityCondition('entity_type', $entity_type)
-      ->entityCondition('bundle', $bundles, 'IN')
-      ->execute();
-    if (empty($results[$entity_type])) {
-      continue;
+function bg_process_update_7100(&$sandbox) {
+  // Generate the list of entities to update only once.
+  if (empty($sandbox['entity_list'])) {
+    // Size of the batch to process.
+    $batch_size = 10;
+    // All of the entities that need to be updated contain the field.
+    $field_info = field_info_field(FIELD_URI);
+    // $field_info['bundles'] contains information about the entities and bundles
+    // that have this particular field attached to them.
+    $entity_list = array();
+    foreach ($field_info['bundles'] as $entity_type => $bundles) {
+      $query = new \EntityFieldQuery();
+      $results = $query
+        ->entityCondition('entity_type', $entity_type)
+        ->entityCondition('bundle', $bundles, 'IN')
+        ->execute();
+      if (empty($results[$entity_type])) {
+        continue;
+      }
+      // Add the ids with the entity type to the $entity_list array, that will be
+      // processed later.
+      $ids = array_keys($results[$entity_type]);
+      $entity_list += array_map(function ($id) use ($entity_type) {
+        return array(
+          'entity_type' => $entity_type,
+          'entity_id' => $id,
+        );
+      }, $ids);
     }
-    // Add the ids with the entity type to the $entity_list array, that will be
-    // processed later.
-    $ids = array_keys($results[$entity_type]);
-    $entity_list += array_map(function ($id) use ($entity_type) {
-      return array(
-        'entity_type' => $entity_type,
-        'entity_id' => $id,
-      );
-    }, $ids);
+    $sandbox['total'] = count($entity_list);
+    $sandbox['entity_list'] = array_chunk($entity_list, $batch_size);
+    $sandbox['succeeded'] = $sandbox['errored'] = $sandbox['processed_chunks'] = 0;
   }
-  // At this point we have the $entity_list array populated. Each position in
-  // this array is an array containing the entity type and entity identifier to
-  // be processed.
-  // Something like:
+  // At this point we have the $sandbox['entity_list'] array populated. Each
+  // position in this array is an array containing a chunk array, containing the
+  // entity type and entity identifier to be processed. Something like:
   // $entity_list = array(
-  //   array('entity_type' => 'node', 'entity_id' => 123),
-  //   array('entity_type' => 'node', 'entity_id' => 45),
-  //   array('entity_type' => 'file', 'entity_id' => 98),
-  //   array('entity_type' => 'file', 'entity_id' => 640),
-  //   array('entity_type' => 'taxonomy_term', 'entity_id' => 74),
+  //   array(
+  //     array('entity_type' => 'node', 'entity_id' => 123),
+  //     array('entity_type' => 'node', 'entity_id' => 45),
+  //   ),
+  //   array(
+  //     array('entity_type' => 'file', 'entity_id' => 98),
+  //     array('entity_type' => 'file', 'entity_id' => 640),
+  //     array('entity_type' => 'taxonomy_term', 'entity_id' => 74),
+  //   ),
   // );
 
   // Here is where we process all of the items:
-  $succeeded = $errored = 0;
-  foreach ($entity_list as $entity_item) {
+  $current_chunk = $sandbox['entity_list'][$sandbox['processed_chunks']];
+  foreach ($current_chunk as $entity_item) {
     $success = _bg_process_perform_expensive_task($entity_item['entity_type'], $entity_item['entity_id']);
-    $success ? $succeeded++ : $errored++;
+    $success ? $sandbox['succeeded']++ : $sandbox['errored']++;
   }
+  // Increment the number of processed chunks to see if we finished.
+  $sandbox['processed_chunks']++;
+
+  // When we have processed all of the chunks $sandbox['#finished'] will be 1.
+  // Then the update runner will consider the job finished.
+  $sandbox['#finished'] = $sandbox['processed_chunks'] / count($sandbox['entity_list']);
 
   return t('@succeeded entities were processed correctly. @errored entities failed.', array(
-    '@succeeded' => $succeeded,
-    '@errored' => $errored,
+    '@succeeded' => $sandbox['succeeded'],
+    '@errored' => $sandbox['errored'],
   ));
 }
