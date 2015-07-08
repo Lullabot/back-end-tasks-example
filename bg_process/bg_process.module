@@ -4,3 +4,18 @@
  * @file
  * Module implementation file.
  */
+
+/**
+ * Helper function that performs an expensive task.
+ *
+ * @param string $entity_type
+ *   The type of entity to be processed.
+ * @param int $entity_id
+ *   The ID of the entity to be processed.
+ *
+ * @return bool
+ *   TRUE if the entity was processed successfully. FALSE otherwise.
+ */
+function _bg_process_perform_expensive_task($entity_type, $entity_id) {
+  // Assume that we are expending at least 10s in this call.
+}
