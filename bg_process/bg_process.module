@@ -19,6 +19,8 @@
 function _bg_process_perform_expensive_task($entity_type, $entity_id) {
   // Assume that we are expending at least 10s in this call.
 
+  // Do nothing for 2 seconds to fake an expensive task.
+  sleep(2);
   // Return a random boolean to fake possible errors happening during the
   // processing of a single item.
   return (bool) floor(mt_rand(0, 1));
