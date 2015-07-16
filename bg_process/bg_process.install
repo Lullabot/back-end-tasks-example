@@ -4,3 +4,49 @@
  * @file
  * Install implementation file.
  */
+
+define('FIELD_URI', 'field_third_party_uri');
+
+/**
+ * Implements hook_install().
+ */
+function bg_process_install() {
+  // Since this module may not be installed we need to kick the update manually
+  // when installing the module.
+  $sandbox = array();
+  update_do_one('bg_process', '7100', array(), $sandbox);
+}
+
+/**
+ * Update from a remote 3rd party web service.
+ */
+function bg_process_update_7100() {
+  /* @var \SystemQueue $queue */
+  $queue = DrupalQueue::get(BG_PROCESS_QUEUE_NAME);
+  // There is no harm in trying to recreate existing.
+  $queue->createQueue();
+
+  // All of the entities that need to be updated contain the field.
+  $field_info = field_info_field(FIELD_URI);
+  // $field_info['bundles'] contains information about the entities and bundles
+  // that have this particular field attached to them.
+  foreach ($field_info['bundles'] as $entity_type => $bundles) {
+    $query = new \EntityFieldQuery();
+    $results = $query
+      ->entityCondition('entity_type', $entity_type)
+      ->entityCondition('bundle', $bundles, 'IN')
+      ->execute();
+    if (empty($results[$entity_type])) {
+      continue;
+    }
+    // Add the ids with the entity type to the $entity_list array, that will be
+    // processed later.
+    $ids = array_keys($results[$entity_type]);
+    foreach ($ids as $id) {
+      $queue->createItem(array(
+        'entity_type' => $entity_type,
+        'entity_id' => $id,
+      ));
+    }
+  }
+}

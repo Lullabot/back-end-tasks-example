@@ -5,6 +5,8 @@
  * Module implementation file.
  */
 
+define('BG_PROCESS_QUEUE_NAME', 'bg_process_queue');
+
 /**
  * Helper function that performs an expensive task.
  *
@@ -24,4 +26,37 @@ function _bg_process_perform_expensive_task($entity_type, $entity_id) {
   // Return a random boolean to fake possible errors happening during the
   // processing of a single item.
   return (bool) floor(mt_rand(0, 1));
+}
+
+/**
+ * Implements hook_cron_queue_info().
+ */
+function bg_process_cron_queue_info() {
+  $queues [BG_PROCESS_QUEUE_NAME] = array(
+    // This callback will be executed for every item added in the queue from the
+    // update hook.
+    'worker callback' => '_bg_process_execute_queue_item',
+    // The process will run as many items as possible during 60 seconds.
+    'time' => 60,
+    // We want queue items to be processed during cron runs.
+    'skip on cron' => FALSE,
+  );
+  return $queues;
+}
+
+/**
+ * Processes a single item from the queue item.
+ *
+ * @param array $entity_info
+ *   Contains the information about the entity type and id.
+ */
+function _bg_process_execute_queue_item(array $entity_info) {
+  if (!_bg_process_perform_expensive_task($entity_info['entity_type'], $entity_info['entity_id'])) {
+    // If the process fails set a warning message.
+    $message = t('Entity of type @type and ID @id could not be processed.', array(
+      '@type' => $entity_info['entity_type'],
+      '@id' => $entity_info['entity_id'],
+    ));
+    watchdog('bg_process', $message, array(), WATCHDOG_WARNING);
+  }
 }
