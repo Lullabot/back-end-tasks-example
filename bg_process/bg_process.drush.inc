@@ -100,5 +100,5 @@ function drush_bg_process_background_process($field_name = NULL) {
   drush_log(dt('@succeeded entities were processed correctly. @errored entities failed.', array(
     '@succeeded' => $succeeded,
     '@errored' => $errored,
-  )), 'notice');
+  )), 'ok');
 }
