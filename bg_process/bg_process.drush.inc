@@ -108,7 +108,7 @@ function drush_bg_process_background_process($field_name = NULL) {
 }
 
 /**
- * Helper function to get the list of entities to process.@global
+ * Helper function to get the list of entities to process.
  *
  * @param string $field_name
  *   The name of the field contained in the bundles to process.
